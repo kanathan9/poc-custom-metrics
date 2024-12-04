@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "poc-springboot-app.fullname" . }}
+  labels:
+    app: poc-springboot-app
+spec:
+  selector:
+    matchLabels:
+      app: poc-springboot-app
+  template:
+    metadata:
+      labels:
+        app: poc-springboot-app
+    spec:
+      volumes:
+        - name: application-config
+          configMap:
+            name: {{ .Release.Name }}-configmap
+        - name: logging-config
+          configMap:
+            name: {{ .Release.Name }}-configmap-logging
+        - name: oracle-db-secret-volume
+          secret:
+            secretName: oracle-db-password
+        - name: data
+          persistentVolumeClaim:
+            claimName: bblis-whi-pvclaim
+        {{- range .Values.externalSecrets }}
+        - name: {{ .name }}-secret-volume
+          secret:
+            secretName: {{ .targetSecretName }}
+        {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            - name: application-config
+              mountPath: /etc/malibu/config
+              readOnly: true
+            - name: logging-config
+              mountPath: /etc/malibu/logging
+              readOnly: true
+            - name: oracle-db-secret-volume
+              mountPath: /etc/oracle-secrets
+              readOnly: true
+            {{- range .Values.externalSecrets }}
+            - name: {{ .name }}-secret-volume
+              mountPath: /etc/secrets/{{ .name }}
+              readOnly: true
+            {{- end }}
+            - name: data
+              mountPath: /opt/data
+          env:
+            - name: SPRING_CONFIG_LOCATION
+              value: /etc/malibu/config/
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: psql-admin-password
+                  name: psql-admin-password
+            - name: FEATURE_SERVICE_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  key: featureServiceInstance-admin
+                  name: blis-malibu-spectrum-creds-admin
+            - name: GEOMETRY_SERVICE_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  key: geometryServiceInstance-admin
+                  name: blis-malibu-spectrum-creds-admin
+            - name: NAMEDRESOURCE_SERVICE_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  key: namedResourceServiceInstance-admin
+                  name: blis-malibu-spectrum-creds-admin
+            - name: KOREM_WHI_DATAFLOW_AUTHENTICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: spring-auth
+                  name: blis-malibu-spring-creds
+            - name: JAVA_TOOL_OPTIONS
+              value: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=localhost:5005 -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9991 -Dcom.sun.management.jmxremote.rmi.port=9991 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Djava.rmi.server.hostname=localhost  -Xms256M -Xmx1024M
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: {{ .Values.requestCPU }}
+              memory: {{ .Values.requestMemory }}
+            limits:
+              {{- if .Values.limitCPU }}
+              cpu: {{ .Values.limitCPU }}
+              {{- end }}
+              memory: {{ .Values.limitMemory }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.startupProbe.path }}
+              port: app-port
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+          {{- end }}
+         {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.path }}
+              port: app-port
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+         {{- end }}
+         {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.path }}
+              port: app-port
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+         {{- end }}

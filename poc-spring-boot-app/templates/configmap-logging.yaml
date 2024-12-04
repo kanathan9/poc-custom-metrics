@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap-logging
+data:
+  logback.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration>
+        <!-- Define global properties (optional) -->
+        <property name="logPattern" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"/>
+        <property name="logDir" value="/logs"/>
+
+        <!-- Define appenders -->
+        <!-- Console Appender: Logs to Docker's stdout (important for Docker environments) -->
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>${logPattern}</pattern>
+            </encoder>
+        </appender>
+
+        <!-- File Appender: Optional, stores logs to a file inside the container -->
+        <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+            <file>${logDir}/app.log</file>
+            <encoder>
+                <pattern>${logPattern}</pattern>
+            </encoder>
+        </appender>
+
+        <!-- RollingFile Appender: Optional, rotates log files -->
+        <appender name="ROLLING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${logDir}/app.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>${logDir}/app-%d{yyyy-MM-dd}-%i.log.gz</fileNamePattern>
+                <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                    <!-- Rotate the log file daily and also when it reaches 10MB -->
+                    <maxFileSize>10MB</maxFileSize>
+                </timeBasedFileNamingAndTriggeringPolicy>
+            </rollingPolicy>
+            <encoder>
+                <pattern>${logPattern}</pattern>
+            </encoder>
+        </appender>
+
+        <!-- Define loggers -->
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <!-- Uncomment the next line if you want to log to a file -->
+            <appender-ref ref="FILE"/>
+            <!-- Uncomment this line if you want log rotation -->
+            <!-- <appender-ref ref="ROLLING_FILE"/> -->
+        </root>
+    </configuration>

@@ -1,0 +1,70 @@
+image:
+  repository: azurecr.io/processing
+  tag: main.b187
+
+service:
+  type: ClusterIP
+  port: 8080
+
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 1
+    memory: 2Gi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  tls:
+    secretName: poc-tls-secret
+  host: poc-springboot-app
+
+
+
+requestCPU: "100m"
+limitCPU: "1"
+
+requestMemory: "500m"
+limitMemory: "2Gi"
+
+## Probe that check when the app is ready to handle request after a startup.
+startupProbe:
+  enabled: false
+  ## Path for the http request check
+  path: actuator/health/liveness
+  ## Number of failed check before the pod is deleted for startup failure
+  failureThreshold: 12
+  ## Interval between check
+  periodSeconds: 5
+
+## Probe that check if the pod is ready to handle request.
+## If the probe fail, the pod will stop receiving request but will not be deleted.
+readinessProbe:
+  enabled: false
+  ## Path for the http request check
+  path: actuator/health/readiness
+  ## Number of failed check before the pod stop receiving request
+  failureThreshold: 1
+  ## Interval between check
+  periodSeconds: 15
+
+## Probe that check if the pob is up.
+## If the probe fail, the pod will be deleted and a new one will be created.
+livenessProbe:
+  enabled: false
+  ## Path for the http request check
+  path: actuator/health/liveness
+  ## Number of failed check before the pod is deleted
+  failureThreshold: 2
+  ## Interval between check
+  periodSeconds: 5
+
+hpa:
+  minReplicas: 1
+  maxReplicas: 10

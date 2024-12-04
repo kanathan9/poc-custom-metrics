@@ -1,0 +1,31 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blis-whi-dataflow-processing-ingress
+  annotations:
+    {{ toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: "nginx"
+  tls:
+    - hosts:
+      {{- if .Values.ingress.host }}
+        - {{ (tpl .Values.ingress.host .) | quote }}
+      {{- end }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+
+  rules:
+  {{- if .Values.ingress.host }}
+    - host: {{ (tpl .Values.ingress.host .) | quote }}
+  {{- end }}
+      http:
+        paths:
+          - path: /processing/qa
+            pathType: Prefix
+            backend:
+              service:
+                name: blis-whi-dataflow-processing-service
+                port:
+                  number: 8080
+
+{{ end }}
